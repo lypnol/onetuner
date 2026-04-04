@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -14,15 +14,15 @@ const { width } = Dimensions.get('window');
 const METER_RADIUS = width * 0.38;
 const NEEDLE_LENGTH = METER_RADIUS * 0.85;
 const TICK_COUNT = 25; // ticks across the arc (-50 to +50 cents)
-const IN_TUNE_CENTS = 5; // ±5 cents = in tune (green glow)
-
-function isInTune(state: { active: boolean; note: { cents: number } | null }) {
-  return state.active && state.note && Math.abs(state.note.cents) <= IN_TUNE_CENTS;
-}
+const IN_TUNE_ENTER = 4;  // must be within ±4 cents to turn green
+const IN_TUNE_EXIT = 8;   // must exceed ±8 cents to turn back to gray
+const TOLERANCE_ARC_STEPS = 20; // segments to draw the tolerance arc band
+const TOLERANCE_DEG = (IN_TUNE_ENTER / 50) * 45; // ±degrees for tolerance zone
 
 export default function App() {
   const { state, error } = useAudioPitch();
   const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [inTune, setInTune] = useState(false);
   const needleAngle = useRef(new Animated.Value(0)).current;
   const recordingPulse = useRef(new Animated.Value(0.3)).current;
 
@@ -68,6 +68,18 @@ export default function App() {
     }).start();
   }, [state.note?.cents]);
 
+  // Hysteresis: tighter threshold to enter green, wider to leave
+  useEffect(() => {
+    if (!state.active || !state.note) {
+      setInTune(false);
+      return;
+    }
+    const absCents = Math.abs(state.note.cents);
+    setInTune((prev) =>
+      prev ? absCents <= IN_TUNE_EXIT : absCents <= IN_TUNE_ENTER
+    );
+  }, [state.active, state.note?.cents]);
+
   const needleRotation = needleAngle.interpolate({
     inputRange: [-45, 45],
     outputRange: ['-45deg', '45deg'],
@@ -80,7 +92,6 @@ export default function App() {
         : `${state.note.cents}`
       : '';
 
-  const inTune = isInTune(state);
   const accentColor = inTune ? '#4ade80' : '#ccc';
 
   return (
@@ -122,11 +133,43 @@ export default function App() {
       <Animated.View style={[styles.meterContainer, { opacity: fadeAnim }]}>
         {/* Arc ticks */}
         <View style={styles.arcContainer}>
+          {/* Tolerance arc band */}
+          {Array.from({ length: TOLERANCE_ARC_STEPS }).map((_, i) => {
+            const angle = ((i / (TOLERANCE_ARC_STEPS - 1)) * 2 * TOLERANCE_DEG - TOLERANCE_DEG) * (Math.PI / 180);
+            const tickLen = 20;
+            const outerR = METER_RADIUS;
+            const innerR = outerR - tickLen;
+            const x1 = Math.sin(angle) * outerR;
+            const y1 = -Math.cos(angle) * outerR;
+            const x2 = Math.sin(angle) * innerR;
+            const y2 = -Math.cos(angle) * innerR;
+
+            return (
+              <View
+                key={`tol-${i}`}
+                style={[
+                  styles.tick,
+                  {
+                    width: 2,
+                    height: tickLen,
+                    left: width / 2 + (x1 + x2) / 2 - 1,
+                    top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
+                    backgroundColor: inTune ? '#4ade80' : 'rgba(204, 204, 204, 0.3)',
+                    transform: [
+                      { rotate: `${(angle * 180) / Math.PI}deg` },
+                    ],
+                  },
+                ]}
+              />
+            );
+          })}
+          {/* Regular ticks (skip center) */}
           {Array.from({ length: TICK_COUNT }).map((_, i) => {
-            const angle = ((i / (TICK_COUNT - 1)) * 90 - 45) * (Math.PI / 180);
             const isCenter = i === Math.floor(TICK_COUNT / 2);
-            const isMajor = i % 6 === 0 || isCenter;
-            const tickLen = isCenter ? 20 : isMajor ? 14 : 8;
+            if (isCenter) return null;
+            const angle = ((i / (TICK_COUNT - 1)) * 90 - 45) * (Math.PI / 180);
+            const isMajor = i % 6 === 0;
+            const tickLen = isMajor ? 14 : 8;
             const outerR = METER_RADIUS;
             const innerR = outerR - tickLen;
             const x1 = Math.sin(angle) * outerR;
@@ -140,13 +183,11 @@ export default function App() {
                 style={[
                   styles.tick,
                   {
-                    width: isCenter ? 2 : isMajor ? 1.5 : 1,
+                    width: isMajor ? 1.5 : 1,
                     height: tickLen,
                     left: width / 2 + (x1 + x2) / 2 - 1,
                     top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
-                    backgroundColor: isCenter
-                      ? (inTune ? '#4ade80' : '#ccc')
-                      : isMajor
+                    backgroundColor: isMajor
                       ? (inTune ? '#4ade80' : '#ccc')
                       : (inTune ? 'rgba(74, 222, 128, 0.5)' : '#999'),
                     transform: [

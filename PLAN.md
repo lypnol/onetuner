@@ -21,6 +21,10 @@ Single-page React Native (Expo) instrument tuner app.
 - [x] Step 7: Fix mic permissions (AudioManager.requestRecordingPermissions + session setup)
 - [x] Step 8: Auto-start listening on launch, remove start/stop button
 - [x] Step 9: Brighten UI colors (keep dark background)
+- [x] Step 10: Green glow when in tune (±5 cents): note name, needle, all ticks turn green
+- [x] Step 11: Needle gray when idle, rotates on bottom dot axis
+- [x] Step 12: Show "listening..." instead of "—" when no sound detected
+- [x] Step 13: Fixed-height note container to prevent meter jumping
 
 ## Files
 - `src/pitchDetection.ts` — YIN algorithm + signal energy check

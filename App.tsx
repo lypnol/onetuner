@@ -14,6 +14,11 @@ const { width } = Dimensions.get('window');
 const METER_RADIUS = width * 0.38;
 const NEEDLE_LENGTH = METER_RADIUS * 0.85;
 const TICK_COUNT = 25; // ticks across the arc (-50 to +50 cents)
+const IN_TUNE_CENTS = 5; // ±5 cents = in tune (green glow)
+
+function isInTune(state: { active: boolean; note: { cents: number } | null }) {
+  return state.active && state.note && Math.abs(state.note.cents) <= IN_TUNE_CENTS;
+}
 
 export default function App() {
   const { state, error } = useAudioPitch();
@@ -52,14 +57,17 @@ export default function App() {
         : `${state.note.cents}`
       : '';
 
+  const inTune = isInTune(state);
+  const accentColor = inTune ? '#4ade80' : '#888';
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
       {/* Note display */}
       <Animated.View style={[styles.noteContainer, { opacity: fadeAnim }]}>
-        <Text style={styles.noteName}>
-          {state.active && state.note ? state.note.name : '—'}
+        <Text style={state.active && state.note ? [styles.noteName, { color: inTune ? '#4ade80' : '#ffffff' }] : styles.listeningText}>
+          {state.active && state.note ? state.note.name : 'listening...'}
         </Text>
         <Text style={styles.frequency}>
           {state.active && state.frequency
@@ -90,15 +98,15 @@ export default function App() {
                 style={[
                   styles.tick,
                   {
-                    width: isCenter ? 2.5 : isMajor ? 1.5 : 1,
+                    width: isCenter ? 2 : isMajor ? 1.5 : 1,
                     height: tickLen,
                     left: width / 2 + (x1 + x2) / 2 - 1,
                     top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
                     backgroundColor: isCenter
-                      ? '#4ade80'
+                      ? (inTune ? '#4ade80' : '#888')
                       : isMajor
-                      ? '#888'
-                      : '#555',
+                      ? (inTune ? '#4ade80' : '#888')
+                      : (inTune ? 'rgba(74, 222, 128, 0.4)' : '#555'),
                     transform: [
                       { rotate: `${(angle * 180) / Math.PI}deg` },
                     ],
@@ -118,8 +126,8 @@ export default function App() {
             },
           ]}
         >
-          <View style={styles.needle} />
-          <View style={styles.needleDot} />
+          <View style={[styles.needle, { backgroundColor: accentColor }]} />
+          <View style={[styles.needleDot, { backgroundColor: accentColor }]} />
         </Animated.View>
 
         {/* Cents label */}
@@ -141,7 +149,9 @@ const styles = StyleSheet.create({
   },
   noteContainer: {
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 30,
+    height: 100,
   },
   noteName: {
     fontSize: 64,
@@ -153,6 +163,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     marginTop: 4,
+    height: 20,
     fontVariant: ['tabular-nums'],
   },
   meterContainer: {
@@ -173,24 +184,26 @@ const styles = StyleSheet.create({
   },
   needleWrapper: {
     alignItems: 'center',
-    justifyContent: 'flex-end',
     width: 4,
-    height: NEEDLE_LENGTH,
-    marginTop: -20,
+    height: NEEDLE_LENGTH + 5,
+    transformOrigin: 'center bottom',
   },
   needle: {
     width: 2,
     height: NEEDLE_LENGTH,
-    backgroundColor: '#ff4444',
     borderRadius: 1,
   },
   needleDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#ff3333',
-    position: 'absolute',
-    bottom: -5,
+    marginTop: -5,
+  },
+  listeningText: {
+    fontSize: 24,
+    fontWeight: '300',
+    color: '#666',
+    letterSpacing: 2,
   },
   centsText: {
     fontSize: 14,

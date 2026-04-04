@@ -17,15 +17,15 @@ const NEEDLE_LENGTH = METER_RADIUS * 0.85;
 const TICK_COUNT = 25;
 const IN_TUNE_ENTER = 4;
 const IN_TUNE_EXIT = 8;
-const TOLERANCE_ARC_STEPS = 80;
 const TOLERANCE_DEG = (IN_TUNE_ENTER / 50) * 45;
+const TOLERANCE_HEIGHT = 20;
 
 const themes = {
   dark: {
     bg: '#0a0a0f',
     noteText: '#ffffff',
     freqText: '#eee',
-    listeningText: '#eee',
+    listeningText: '#f0f0f0',
     centsText: '#fff',
     tickMajor: '#fff',
     tickMinor: '#eee',
@@ -39,14 +39,14 @@ const themes = {
   },
   light: {
     bg: '#f5f5f7',
-    noteText: '#111',
-    freqText: '#555',
-    listeningText: '#777',
-    centsText: '#333',
-    tickMajor: '#222',
-    tickMinor: '#555',
-    toleranceIdle: 'rgba(0, 0, 0, 0.2)',
-    needle: '#222',
+    noteText: '#000',
+    freqText: '#333',
+    listeningText: '#111',
+    centsText: '#111',
+    tickMajor: '#000',
+    tickMinor: '#333',
+    toleranceIdle: 'rgba(0, 0, 0, 0.4)',
+    needle: '#000',
     accent: '#22c55e',
     accentMinor: 'rgba(34, 197, 94, 0.4)',
     errorText: '#dc2626',
@@ -175,7 +175,7 @@ export default function App() {
           </>
         ) : (
           <View style={styles.listeningRow}>
-            <Animated.View style={[styles.recordingDot, { opacity: recordingPulse, backgroundColor: dark ? '#ff6666' : '#ff4444' }]} />
+            <Animated.View style={[styles.recordingDot, { opacity: recordingPulse, backgroundColor: '#ff0000' }]} />
             <Text style={[styles.listeningText, { color: t.listeningText }]}>listening...</Text>
           </View>
         )}
@@ -185,33 +185,27 @@ export default function App() {
       <Animated.View style={[styles.meterContainer, { opacity: fadeAnim }]}>
         {/* Arc ticks */}
         <View style={styles.arcContainer}>
-          {/* Tolerance arc band */}
-          {Array.from({ length: TOLERANCE_ARC_STEPS }).map((_, i) => {
-            const angle = ((i / (TOLERANCE_ARC_STEPS - 1)) * 2 * TOLERANCE_DEG - TOLERANCE_DEG) * (Math.PI / 180);
-            const tickLen = 20;
+          {/* Tolerance arc band — overlapping strips for solid fill */}
+          {Array.from({ length: 40 }).map((_, i) => {
+            const angle = ((i / 39) * 2 * TOLERANCE_DEG - TOLERANCE_DEG) * (Math.PI / 180);
             const outerR = METER_RADIUS;
-            const innerR = outerR - tickLen;
-            const x1 = Math.sin(angle) * outerR;
-            const y1 = -Math.cos(angle) * outerR;
-            const x2 = Math.sin(angle) * innerR;
-            const y2 = -Math.cos(angle) * innerR;
+            const midR = outerR - TOLERANCE_HEIGHT / 2;
+            const x = Math.sin(angle) * midR;
+            const y = -Math.cos(angle) * midR;
 
             return (
               <View
                 key={`tol-${i}`}
-                style={[
-                  styles.tick,
-                  {
-                    width: 2,
-                    height: tickLen,
-                    left: width / 2 + (x1 + x2) / 2 - 1,
-                    top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
-                    backgroundColor: inTune ? t.accent : t.toleranceIdle,
-                    transform: [
-                      { rotate: `${(angle * 180) / Math.PI}deg` },
-                    ],
-                  },
-                ]}
+                style={{
+                  position: 'absolute',
+                  width: 4,
+                  height: TOLERANCE_HEIGHT,
+                  borderRadius: 1,
+                  left: width / 2 + x - 2,
+                  top: METER_RADIUS + y - TOLERANCE_HEIGHT / 2,
+                  backgroundColor: inTune ? t.accent : t.toleranceIdle,
+                  transform: [{ rotate: `${(angle * 180) / Math.PI}deg` }],
+                }}
               />
             );
           })}

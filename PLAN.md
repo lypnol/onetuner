@@ -25,6 +25,11 @@ Single-page React Native (Expo) instrument tuner app.
 - [x] Step 11: Needle gray when idle, rotates on bottom dot axis
 - [x] Step 12: Show "listening..." instead of "—" when no sound detected
 - [x] Step 13: Fixed-height note container to prevent meter jumping
+- [x] Step 14: Rich note display (base + subscript octave + ♭ accidental)
+- [x] Step 15: Pulsing red recording indicator when listening idle
+- [x] Step 16: Pitch smoothing (median filter, EMA on cents, silence hold-over)
+- [x] Step 17: Lower signal threshold (0.002) for sustained notes
+- [x] Step 18: Brighter meter base colors (#ccc/#999)
 
 ## Files
 - `src/pitchDetection.ts` — YIN algorithm + signal energy check

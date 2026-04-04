@@ -63,7 +63,7 @@ export function detectPitch(
 /**
  * Check if buffer has enough energy to consider it "sound".
  */
-export function hasSignal(buffer: Float32Array, threshold = 0.01): boolean {
+export function hasSignal(buffer: Float32Array, threshold = 0.002): boolean {
   let sum = 0;
   for (let i = 0; i < buffer.length; i++) {
     sum += buffer[i] * buffer[i];

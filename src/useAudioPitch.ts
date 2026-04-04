@@ -5,6 +5,15 @@ import { frequencyToNote, NoteInfo } from './noteMapper';
 
 const SAMPLE_RATE = 44100;
 const BUFFER_SIZE = 2048;
+const MEDIAN_WINDOW = 3;
+const CENTS_SMOOTHING = 0.5; // EMA factor (0 = no change, 1 = instant)
+const SILENCE_FRAMES_THRESHOLD = 8; // frames without pitch before going inactive
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
 
 export interface TunerState {
   note: NoteInfo | null;
@@ -23,6 +32,9 @@ export function useAudioPitch() {
 
   useEffect(() => {
     let cancelled = false;
+    const freqHistory: number[] = [];
+    let smoothedCents = 0;
+    let silenceCount = 0;
 
     async function startListening() {
       try {
@@ -57,16 +69,40 @@ export function useAudioPitch() {
             const buffer = event.buffer.getChannelData(0);
 
             if (!hasSignal(buffer)) {
-              setState({ note: null, frequency: null, active: false });
+              silenceCount++;
+              if (silenceCount >= SILENCE_FRAMES_THRESHOLD) {
+                freqHistory.length = 0;
+                smoothedCents = 0;
+                setState({ note: null, frequency: null, active: false });
+              }
               return;
             }
 
             const freq = detectPitch(buffer, SAMPLE_RATE);
             if (freq) {
-              const note = frequencyToNote(freq);
-              setState({ note, frequency: freq, active: true });
+              silenceCount = 0;
+              freqHistory.push(freq);
+              if (freqHistory.length > MEDIAN_WINDOW) {
+                freqHistory.shift();
+              }
+
+              const smoothedFreq = freqHistory.length >= 3 ? median(freqHistory) : freq;
+              const note = frequencyToNote(smoothedFreq);
+
+              smoothedCents = smoothedCents + CENTS_SMOOTHING * (note.cents - smoothedCents);
+              const displayNote: NoteInfo = {
+                ...note,
+                cents: Math.round(smoothedCents),
+              };
+
+              setState({ note: displayNote, frequency: smoothedFreq, active: true });
             } else {
-              setState((prev) => ({ ...prev, active: false }));
+              silenceCount++;
+              if (silenceCount >= SILENCE_FRAMES_THRESHOLD) {
+                freqHistory.length = 0;
+                smoothedCents = 0;
+                setState({ note: null, frequency: null, active: false });
+              }
             }
           }
         );

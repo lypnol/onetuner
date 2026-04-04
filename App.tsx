@@ -24,6 +24,29 @@ export default function App() {
   const { state, error } = useAudioPitch();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const needleAngle = useRef(new Animated.Value(0)).current;
+  const recordingPulse = useRef(new Animated.Value(0.3)).current;
+
+  // Recording dot pulse — restart each time we go inactive
+  useEffect(() => {
+    if (state.active) return;
+    recordingPulse.setValue(0.3);
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(recordingPulse, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: false,
+        }),
+        Animated.timing(recordingPulse, {
+          toValue: 0.3,
+          duration: 900,
+          useNativeDriver: false,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [state.active]);
 
   // Fade in/out based on active state
   useEffect(() => {
@@ -58,7 +81,7 @@ export default function App() {
       : '';
 
   const inTune = isInTune(state);
-  const accentColor = inTune ? '#4ade80' : '#888';
+  const accentColor = inTune ? '#4ade80' : '#ccc';
 
   return (
     <View style={styles.container}>
@@ -66,14 +89,33 @@ export default function App() {
 
       {/* Note display */}
       <Animated.View style={[styles.noteContainer, { opacity: fadeAnim }]}>
-        <Text style={state.active && state.note ? [styles.noteName, { color: inTune ? '#4ade80' : '#ffffff' }] : styles.listeningText}>
-          {state.active && state.note ? state.note.name : 'listening...'}
-        </Text>
-        <Text style={styles.frequency}>
-          {state.active && state.frequency
-            ? `${state.frequency.toFixed(1)} Hz`
-            : ''}
-        </Text>
+        {state.active && state.note ? (
+          <>
+            <View style={styles.noteRow}>
+              <Text style={[styles.noteBase, { color: inTune ? '#4ade80' : '#ffffff' }]}>
+                {state.note.base}
+              </Text>
+              <View style={styles.noteSubscripts}>
+                <Text style={[styles.noteOctave, { color: inTune ? '#4ade80' : '#ffffff' }]}>
+                  {state.note.octave}
+                </Text>
+                {state.note.accidental ? (
+                  <Text style={[styles.noteAccidental, { color: inTune ? '#4ade80' : '#ffffff' }]}>
+                    {state.note.accidental}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
+            <Text style={styles.frequency}>
+              {state.frequency ? `${state.frequency.toFixed(1)} Hz` : ''}
+            </Text>
+          </>
+        ) : (
+          <View style={styles.listeningRow}>
+            <Animated.View style={[styles.recordingDot, { opacity: recordingPulse }]} />
+            <Text style={styles.listeningText}>listening...</Text>
+          </View>
+        )}
       </Animated.View>
 
       {/* Meter */}
@@ -103,10 +145,10 @@ export default function App() {
                     left: width / 2 + (x1 + x2) / 2 - 1,
                     top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
                     backgroundColor: isCenter
-                      ? (inTune ? '#4ade80' : '#888')
+                      ? (inTune ? '#4ade80' : '#ccc')
                       : isMajor
-                      ? (inTune ? '#4ade80' : '#888')
-                      : (inTune ? 'rgba(74, 222, 128, 0.4)' : '#555'),
+                      ? (inTune ? '#4ade80' : '#ccc')
+                      : (inTune ? 'rgba(74, 222, 128, 0.5)' : '#999'),
                     transform: [
                       { rotate: `${(angle * 180) / Math.PI}deg` },
                     ],
@@ -153,11 +195,27 @@ const styles = StyleSheet.create({
     marginBottom: 30,
     height: 100,
   },
-  noteName: {
+  noteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  noteBase: {
     fontSize: 64,
     fontWeight: '200',
-    color: '#ffffff',
-    letterSpacing: 4,
+    letterSpacing: 2,
+  },
+  noteSubscripts: {
+    marginLeft: 2,
+    marginTop: 8,
+  },
+  noteOctave: {
+    fontSize: 24,
+    fontWeight: '300',
+  },
+  noteAccidental: {
+    fontSize: 28,
+    fontWeight: '300',
+    marginTop: -4,
   },
   frequency: {
     fontSize: 16,
@@ -165,6 +223,17 @@ const styles = StyleSheet.create({
     marginTop: 4,
     height: 20,
     fontVariant: ['tabular-nums'],
+  },
+  listeningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  recordingDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#ff4444',
   },
   meterContainer: {
     width: width,

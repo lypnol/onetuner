@@ -5,7 +5,6 @@ import {
   Text,
   Animated,
   Dimensions,
-  TouchableOpacity,
   Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -17,14 +16,14 @@ const NEEDLE_LENGTH = METER_RADIUS * 0.85;
 const TICK_COUNT = 25; // ticks across the arc (-50 to +50 cents)
 
 export default function App() {
-  const { state, error, listening, start, stop } = useAudioPitch();
+  const { state, error } = useAudioPitch();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const needleAngle = useRef(new Animated.Value(0)).current;
 
   // Fade in/out based on active state
   useEffect(() => {
     Animated.timing(fadeAnim, {
-      toValue: state.active ? 1 : 0.15,
+      toValue: state.active ? 1 : 0.4,
       duration: state.active ? 150 : 800,
       useNativeDriver: true,
     }).start();
@@ -98,8 +97,8 @@ export default function App() {
                     backgroundColor: isCenter
                       ? '#4ade80'
                       : isMajor
-                      ? '#555'
-                      : '#333',
+                      ? '#888'
+                      : '#555',
                     transform: [
                       { rotate: `${(angle * 180) / Math.PI}deg` },
                     ],
@@ -127,17 +126,6 @@ export default function App() {
         <Text style={styles.centsText}>{centsText}</Text>
       </Animated.View>
 
-      {/* Start/Stop button */}
-      <TouchableOpacity
-        style={[styles.button, listening && styles.buttonActive]}
-        onPress={listening ? stop : start}
-        activeOpacity={0.7}
-      >
-        <Text style={styles.buttonText}>
-          {listening ? 'STOP' : 'START'}
-        </Text>
-      </TouchableOpacity>
-
       {error && <Text style={styles.errorText}>{error}</Text>}
     </View>
   );
@@ -158,12 +146,12 @@ const styles = StyleSheet.create({
   noteName: {
     fontSize: 64,
     fontWeight: '200',
-    color: '#e0e0e0',
+    color: '#ffffff',
     letterSpacing: 4,
   },
   frequency: {
     fontSize: 16,
-    color: '#555',
+    color: '#999',
     marginTop: 4,
     fontVariant: ['tabular-nums'],
   },
@@ -193,44 +181,25 @@ const styles = StyleSheet.create({
   needle: {
     width: 2,
     height: NEEDLE_LENGTH,
-    backgroundColor: '#e74c3c',
+    backgroundColor: '#ff4444',
     borderRadius: 1,
   },
   needleDot: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#c0392b',
+    backgroundColor: '#ff3333',
     position: 'absolute',
     bottom: -5,
   },
   centsText: {
     fontSize: 14,
-    color: '#666',
+    color: '#aaa',
     marginTop: 20,
     fontVariant: ['tabular-nums'],
   },
-  button: {
-    marginTop: 50,
-    paddingHorizontal: 40,
-    paddingVertical: 14,
-    borderRadius: 30,
-    borderWidth: 1,
-    borderColor: '#333',
-    backgroundColor: 'transparent',
-  },
-  buttonActive: {
-    borderColor: '#e74c3c',
-    backgroundColor: 'rgba(231, 76, 60, 0.1)',
-  },
-  buttonText: {
-    fontSize: 14,
-    color: '#888',
-    letterSpacing: 6,
-    fontWeight: '300',
-  },
   errorText: {
-    color: '#e74c3c',
+    color: '#ff4444',
     fontSize: 12,
     marginTop: 16,
     textAlign: 'center',

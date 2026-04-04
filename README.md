@@ -4,6 +4,15 @@ Just a tuner. Nothing more.
 
 Open the app, play a note, see if you're in tune. No accounts, no ads, no subscriptions, no social features.
 
+## Screenshots
+
+<p align="center">
+  <img src="screens/IMG_0606.PNG" width="200" />
+  <img src="screens/IMG_0609.PNG" width="200" />
+  <img src="screens/IMG_0610.PNG" width="200" />
+  <img src="screens/IMG_0611.PNG" width="200" />
+</p>
+
 ## How it works
 
 - Listens to your microphone and detects pitch in real-time using the YIN algorithm

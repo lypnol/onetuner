@@ -6,6 +6,7 @@ import {
   Animated,
   Dimensions,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAudioPitch } from './src/useAudioPitch';
@@ -13,18 +14,56 @@ import { useAudioPitch } from './src/useAudioPitch';
 const { width } = Dimensions.get('window');
 const METER_RADIUS = width * 0.38;
 const NEEDLE_LENGTH = METER_RADIUS * 0.85;
-const TICK_COUNT = 25; // ticks across the arc (-50 to +50 cents)
-const IN_TUNE_ENTER = 4;  // must be within ±4 cents to turn green
-const IN_TUNE_EXIT = 8;   // must exceed ±8 cents to turn back to gray
-const TOLERANCE_ARC_STEPS = 20; // segments to draw the tolerance arc band
-const TOLERANCE_DEG = (IN_TUNE_ENTER / 50) * 45; // ±degrees for tolerance zone
+const TICK_COUNT = 25;
+const IN_TUNE_ENTER = 4;
+const IN_TUNE_EXIT = 8;
+const TOLERANCE_ARC_STEPS = 80;
+const TOLERANCE_DEG = (IN_TUNE_ENTER / 50) * 45;
+
+const themes = {
+  dark: {
+    bg: '#0a0a0f',
+    noteText: '#ffffff',
+    freqText: '#eee',
+    listeningText: '#eee',
+    centsText: '#fff',
+    tickMajor: '#fff',
+    tickMinor: '#eee',
+    toleranceIdle: 'rgba(255, 255, 255, 0.6)',
+    needle: '#fff',
+    accent: '#4ade80',
+    accentMinor: 'rgba(74, 222, 128, 0.5)',
+    errorText: '#ff6666',
+    toggleIcon: '#ccc',
+    statusBar: 'light' as const,
+  },
+  light: {
+    bg: '#f5f5f7',
+    noteText: '#111',
+    freqText: '#555',
+    listeningText: '#777',
+    centsText: '#333',
+    tickMajor: '#222',
+    tickMinor: '#555',
+    toleranceIdle: 'rgba(0, 0, 0, 0.2)',
+    needle: '#222',
+    accent: '#22c55e',
+    accentMinor: 'rgba(34, 197, 94, 0.4)',
+    errorText: '#dc2626',
+    toggleIcon: '#666',
+    statusBar: 'dark' as const,
+  },
+};
 
 export default function App() {
   const { state, error } = useAudioPitch();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [inTune, setInTune] = useState(false);
+  const [dark, setDark] = useState(true);
   const needleAngle = useRef(new Animated.Value(0)).current;
   const recordingPulse = useRef(new Animated.Value(0.3)).current;
+
+  const t = dark ? themes.dark : themes.light;
 
   // Recording dot pulse — restart each time we go inactive
   useEffect(() => {
@@ -92,39 +131,52 @@ export default function App() {
         : `${state.note.cents}`
       : '';
 
-  const accentColor = inTune ? '#4ade80' : '#ccc';
+  const accentColor = inTune ? t.accent : t.needle;
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="light" />
+    <View style={[styles.container, { backgroundColor: t.bg }]}>
+      <StatusBar style={t.statusBar} />
+
+      {/* Theme toggle */}
+      <TouchableOpacity
+        style={styles.themeToggle}
+        onPress={() => setDark((d) => !d)}
+        activeOpacity={0.6}
+      >
+        <View style={[styles.toggleCircle, { borderColor: t.toggleIcon }]}>
+          {dark ? null : (
+            <View style={[styles.toggleCrescent, { backgroundColor: t.bg }]} />
+          )}
+        </View>
+      </TouchableOpacity>
 
       {/* Note display */}
       <Animated.View style={[styles.noteContainer, { opacity: fadeAnim }]}>
         {state.active && state.note ? (
           <>
             <View style={styles.noteRow}>
-              <Text style={[styles.noteBase, { color: inTune ? '#4ade80' : '#ffffff' }]}>
+              <Text style={[styles.noteBase, { color: inTune ? t.accent : t.noteText }]}>
                 {state.note.base}
               </Text>
               <View style={styles.noteSubscripts}>
-                <Text style={[styles.noteOctave, { color: inTune ? '#4ade80' : '#ffffff' }]}>
+                <Text style={[styles.noteOctave, { color: inTune ? t.accent : t.noteText }]}>
                   {state.note.octave}
                 </Text>
                 {state.note.accidental ? (
-                  <Text style={[styles.noteAccidental, { color: inTune ? '#4ade80' : '#ffffff' }]}>
+                  <Text style={[styles.noteAccidental, { color: inTune ? t.accent : t.noteText }]}>
                     {state.note.accidental}
                   </Text>
                 ) : null}
               </View>
             </View>
-            <Text style={styles.frequency}>
+            <Text style={[styles.frequency, { color: t.freqText }]}>
               {state.frequency ? `${state.frequency.toFixed(1)} Hz` : ''}
             </Text>
           </>
         ) : (
           <View style={styles.listeningRow}>
-            <Animated.View style={[styles.recordingDot, { opacity: recordingPulse }]} />
-            <Text style={styles.listeningText}>listening...</Text>
+            <Animated.View style={[styles.recordingDot, { opacity: recordingPulse, backgroundColor: dark ? '#ff6666' : '#ff4444' }]} />
+            <Text style={[styles.listeningText, { color: t.listeningText }]}>listening...</Text>
           </View>
         )}
       </Animated.View>
@@ -154,7 +206,7 @@ export default function App() {
                     height: tickLen,
                     left: width / 2 + (x1 + x2) / 2 - 1,
                     top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
-                    backgroundColor: inTune ? '#4ade80' : 'rgba(204, 204, 204, 0.3)',
+                    backgroundColor: inTune ? t.accent : t.toleranceIdle,
                     transform: [
                       { rotate: `${(angle * 180) / Math.PI}deg` },
                     ],
@@ -188,8 +240,8 @@ export default function App() {
                     left: width / 2 + (x1 + x2) / 2 - 1,
                     top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
                     backgroundColor: isMajor
-                      ? (inTune ? '#4ade80' : '#ccc')
-                      : (inTune ? 'rgba(74, 222, 128, 0.5)' : '#999'),
+                      ? (inTune ? t.accent : t.tickMajor)
+                      : (inTune ? t.accentMinor : t.tickMinor),
                     transform: [
                       { rotate: `${(angle * 180) / Math.PI}deg` },
                     ],
@@ -214,10 +266,10 @@ export default function App() {
         </Animated.View>
 
         {/* Cents label */}
-        <Text style={styles.centsText}>{centsText}</Text>
+        <Text style={[styles.centsText, { color: t.centsText }]}>{centsText}</Text>
       </Animated.View>
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && <Text style={[styles.errorText, { color: t.errorText }]}>{error}</Text>}
     </View>
   );
 }
@@ -225,10 +277,29 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0f',
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
+  },
+  themeToggle: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    left: 20,
+    padding: 8,
+  },
+  toggleCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+  },
+  toggleCrescent: {
+    position: 'absolute',
+    width: 12,
+    height: 18,
+    borderRadius: 9,
+    right: -2,
+    top: -1.5,
   },
   noteContainer: {
     alignItems: 'center',
@@ -260,7 +331,6 @@ const styles = StyleSheet.create({
   },
   frequency: {
     fontSize: 16,
-    color: '#999',
     marginTop: 4,
     height: 20,
     fontVariant: ['tabular-nums'],
@@ -275,6 +345,11 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: '#ff4444',
+  },
+  listeningText: {
+    fontSize: 24,
+    fontWeight: '300',
+    letterSpacing: 2,
   },
   meterContainer: {
     width: width,
@@ -309,20 +384,12 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     marginTop: -5,
   },
-  listeningText: {
-    fontSize: 24,
-    fontWeight: '300',
-    color: '#666',
-    letterSpacing: 2,
-  },
   centsText: {
     fontSize: 14,
-    color: '#aaa',
     marginTop: 20,
     fontVariant: ['tabular-nums'],
   },
   errorText: {
-    color: '#ff4444',
     fontSize: 12,
     marginTop: 16,
     textAlign: 'center',

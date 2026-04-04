@@ -52,7 +52,7 @@ export function useAudioPitch() {
     try {
       const permission = await AudioManager.requestRecordingPermissions();
       if (permission !== 'Granted') {
-        setError('Microphone permission denied. Go to Settings > pitchtune and enable Microphone access.');
+        setError('Microphone permission denied. Go to Settings > pitchtuner and enable Microphone access.');
         return;
       }
 

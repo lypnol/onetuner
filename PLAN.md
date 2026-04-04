@@ -30,6 +30,8 @@ Single-page React Native (Expo) instrument tuner app.
 - [x] Step 16: Pitch smoothing (median filter, EMA on cents, silence hold-over)
 - [x] Step 17: Lower signal threshold (0.002) for sustained notes
 - [x] Step 18: Brighter meter base colors (#ccc/#999)
+- [x] Step 19: Stop/restart mic on background/foreground via AppState
+- [x] Step 20: Replace app icon, adaptive icon, splash icon, favicon with custom logo
 
 ## Files
 - `src/pitchDetection.ts` — YIN algorithm + signal energy check

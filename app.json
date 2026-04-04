@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "pitchtuner",
-    "slug": "pitchtuner",
+    "name": "onetuner",
+    "slug": "onetuner",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,9 +16,9 @@
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "PitchTuner needs microphone access to detect pitch."
+        "NSMicrophoneUsageDescription": "OneTuner needs microphone access to detect pitch."
       },
-      "bundleIdentifier": "com.ayoubsbai.pitchtuner",
+      "bundleIdentifier": "com.ayoubsbai.onetuner",
       "appleTeamId": "GLEUU8BUZB"
     },
     "android": {
@@ -33,7 +33,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.ayoubsbai.pitchtuner"
+      "package": "com.ayoubsbai.onetuner"
     },
     "web": {
       "favicon": "./assets/favicon.png"

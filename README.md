@@ -1,4 +1,4 @@
-# PitchTuner
+# OneTuner
 
 Just a tuner. Nothing more.
 

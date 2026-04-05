@@ -33,6 +33,10 @@ export function useAudioPitch(a4Freq: number = 440, notation: Notation = 'solfeg
   const freqHistoryRef = useRef<number[]>([]);
   const smoothedCentsRef = useRef(0);
   const silenceCountRef = useRef(0);
+  const a4FreqRef = useRef(a4Freq);
+  const notationRef = useRef(notation);
+  a4FreqRef.current = a4Freq;
+  notationRef.current = notation;
 
   const stopRecorder = () => {
     if (recorderRef.current) {
@@ -96,7 +100,7 @@ export function useAudioPitch(a4Freq: number = 440, notation: Notation = 'solfeg
             }
 
             const smoothedFreq = history.length >= 3 ? median(history) : freq;
-            const note = frequencyToNote(smoothedFreq, a4Freq, notation);
+            const note = frequencyToNote(smoothedFreq, a4FreqRef.current, notationRef.current);
 
             smoothedCentsRef.current += CENTS_SMOOTHING * (note.cents - smoothedCentsRef.current);
             const displayNote: NoteInfo = {

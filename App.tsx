@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from "react";
 import {
   StyleSheet,
   View,
@@ -11,12 +11,14 @@ import {
   Switch,
   TextInput,
   Linking,
-} from 'react-native';
-import { StatusBar } from 'expo-status-bar';
-import { useAudioPitch } from './src/useAudioPitch';
-import { useSettings } from './src/useSettings';
+  Keyboard,
+} from "react-native";
+import { StatusBar } from "expo-status-bar";
+import { Ionicons } from "@expo/vector-icons";
+import { useAudioPitch } from "./src/useAudioPitch";
+import { useSettings } from "./src/useSettings";
 
-const { width } = Dimensions.get('window');
+const { width } = Dimensions.get("window");
 const METER_RADIUS = width * 0.38;
 const NEEDLE_LENGTH = METER_RADIUS * 0.85;
 const TICK_COUNT = 25;
@@ -27,46 +29,46 @@ const TOLERANCE_HEIGHT = 20;
 
 const themes = {
   dark: {
-    bg: '#0a0a0f',
-    noteText: '#ffffff',
-    freqText: '#eee',
-    listeningText: '#f0f0f0',
-    centsText: '#fff',
-    tickMajor: '#fff',
-    tickMinor: '#eee',
-    toleranceIdle: 'rgba(255, 255, 255, 0.6)',
-    needle: '#fff',
-    accent: '#4ade80',
-    accentMinor: 'rgba(74, 222, 128, 0.5)',
-    errorText: '#ff6666',
-    iconColor: '#ccc',
-    statusBar: 'light' as const,
-    modalBg: '#1a1a22',
-    modalText: '#eee',
-    modalSecondary: '#888',
-    modalBorder: '#333',
-    modalInputBg: '#0a0a0f',
+    bg: "#0a0a0f",
+    noteText: "#ffffff",
+    freqText: "#eee",
+    listeningText: "#f0f0f0",
+    centsText: "#fff",
+    tickMajor: "#fff",
+    tickMinor: "#eee",
+    toleranceIdle: "rgba(255, 255, 255, 0.6)",
+    needle: "#fff",
+    accent: "#4ade80",
+    accentMinor: "rgba(74, 222, 128, 0.5)",
+    errorText: "#ff6666",
+    iconColor: "#ccc",
+    statusBar: "light" as const,
+    modalBg: "#1a1a22",
+    modalText: "#eee",
+    modalSecondary: "#888",
+    modalBorder: "#333",
+    modalInputBg: "#0a0a0f",
   },
   light: {
-    bg: '#f5f5f7',
-    noteText: '#000',
-    freqText: '#333',
-    listeningText: '#111',
-    centsText: '#111',
-    tickMajor: '#000',
-    tickMinor: '#333',
-    toleranceIdle: 'rgba(0, 0, 0, 0.4)',
-    needle: '#000',
-    accent: '#22c55e',
-    accentMinor: 'rgba(34, 197, 94, 0.4)',
-    errorText: '#dc2626',
-    iconColor: '#666',
-    statusBar: 'dark' as const,
-    modalBg: '#ffffff',
-    modalText: '#111',
-    modalSecondary: '#777',
-    modalBorder: '#ddd',
-    modalInputBg: '#f0f0f0',
+    bg: "#f5f5f7",
+    noteText: "#000",
+    freqText: "#333",
+    listeningText: "#111",
+    centsText: "#111",
+    tickMajor: "#000",
+    tickMinor: "#333",
+    toleranceIdle: "rgba(0, 0, 0, 0.4)",
+    needle: "#000",
+    accent: "#22c55e",
+    accentMinor: "rgba(34, 197, 94, 0.4)",
+    errorText: "#dc2626",
+    iconColor: "#666",
+    statusBar: "dark" as const,
+    modalBg: "#ffffff",
+    modalText: "#111",
+    modalSecondary: "#777",
+    modalBorder: "#ddd",
+    modalInputBg: "#f0f0f0",
   },
 };
 
@@ -93,9 +95,17 @@ export default function App() {
     recordingPulse.setValue(0.3);
     const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(recordingPulse, { toValue: 1, duration: 900, useNativeDriver: false }),
-        Animated.timing(recordingPulse, { toValue: 0.3, duration: 900, useNativeDriver: false }),
-      ])
+        Animated.timing(recordingPulse, {
+          toValue: 1,
+          duration: 900,
+          useNativeDriver: false,
+        }),
+        Animated.timing(recordingPulse, {
+          toValue: 0.3,
+          duration: 900,
+          useNativeDriver: false,
+        }),
+      ]),
     );
     pulse.start();
     return () => pulse.stop();
@@ -129,13 +139,13 @@ export default function App() {
     }
     const absCents = Math.abs(state.note.cents);
     setInTune((prev) =>
-      prev ? absCents <= IN_TUNE_EXIT : absCents <= IN_TUNE_ENTER
+      prev ? absCents <= IN_TUNE_EXIT : absCents <= IN_TUNE_ENTER,
     );
   }, [state.active, state.note?.cents]);
 
   const needleRotation = needleAngle.interpolate({
     inputRange: [-45, 45],
-    outputRange: ['-45deg', '45deg'],
+    outputRange: ["-45deg", "45deg"],
   });
 
   const centsText =
@@ -143,20 +153,20 @@ export default function App() {
       ? state.note.cents > 0
         ? `+${state.note.cents}`
         : `${state.note.cents}`
-      : '';
+      : "";
 
   const accentColor = inTune ? t.accent : t.needle;
 
   const handleA4Change = (text: string) => {
     setA4Input(text);
     const val = parseInt(text, 10);
-    if (val >= 400 && val <= 480) {
+    if (val > 0 && !isNaN(val)) {
       update({ a4Freq: val });
     }
   };
 
   const resetA4 = () => {
-    setA4Input('440');
+    setA4Input("440");
     update({ a4Freq: 440 });
   };
 
@@ -164,26 +174,13 @@ export default function App() {
     <View style={[styles.container, { backgroundColor: t.bg }]}>
       <StatusBar style={t.statusBar} />
 
-      {/* Settings gear button */}
+      {/* Settings button */}
       <TouchableOpacity
         style={styles.settingsButton}
         onPress={() => setShowSettings(true)}
         activeOpacity={0.6}
       >
-        <View style={[styles.gearOuter, { borderColor: t.iconColor }]}>
-          {/* Gear teeth */}
-          {[0, 45, 90, 135].map((deg) => (
-            <View
-              key={deg}
-              style={[styles.gearTooth, {
-                backgroundColor: t.iconColor,
-                transform: [{ rotate: `${deg}deg` }],
-              }]}
-            />
-          ))}
-          {/* Center hole */}
-          <View style={[styles.gearCenter, { backgroundColor: t.bg }]} />
-        </View>
+        <Ionicons name="settings-outline" size={22} color={t.iconColor} />
       </TouchableOpacity>
 
       {/* Note display */}
@@ -191,28 +188,50 @@ export default function App() {
         {state.active && state.note ? (
           <>
             <View style={styles.noteRow}>
-              <Text style={[styles.noteBase, { color: inTune ? t.accent : t.noteText }]}>
+              <Text
+                style={[
+                  styles.noteBase,
+                  { color: inTune ? t.accent : t.noteText },
+                ]}
+              >
                 {state.note.base}
               </Text>
               <View style={styles.noteSubscripts}>
-                <Text style={[styles.noteOctave, { color: inTune ? t.accent : t.noteText }]}>
+                <Text
+                  style={[
+                    styles.noteOctave,
+                    { color: inTune ? t.accent : t.noteText },
+                  ]}
+                >
                   {state.note.octave}
                 </Text>
                 {state.note.accidental ? (
-                  <Text style={[styles.noteAccidental, { color: inTune ? t.accent : t.noteText }]}>
+                  <Text
+                    style={[
+                      styles.noteAccidental,
+                      { color: inTune ? t.accent : t.noteText },
+                    ]}
+                  >
                     {state.note.accidental}
                   </Text>
                 ) : null}
               </View>
             </View>
             <Text style={[styles.frequency, { color: t.freqText }]}>
-              {state.frequency ? `${state.frequency.toFixed(1)} Hz` : ''}
+              {state.frequency ? `${state.frequency.toFixed(1)} Hz` : ""}
             </Text>
           </>
         ) : (
           <View style={styles.listeningRow}>
-            <Animated.View style={[styles.recordingDot, { opacity: recordingPulse, backgroundColor: '#ff0000' }]} />
-            <Text style={[styles.listeningText, { color: t.listeningText }]}>listening...</Text>
+            <Animated.View
+              style={[
+                styles.recordingDot,
+                { opacity: recordingPulse, backgroundColor: "#ff0000" },
+              ]}
+            />
+            <Text style={[styles.listeningText, { color: t.listeningText }]}>
+              listening...
+            </Text>
           </View>
         )}
       </Animated.View>
@@ -222,7 +241,8 @@ export default function App() {
         <View style={styles.arcContainer}>
           {/* Tolerance arc band */}
           {Array.from({ length: 40 }).map((_, i) => {
-            const angle = ((i / 39) * 2 * TOLERANCE_DEG - TOLERANCE_DEG) * (Math.PI / 180);
+            const angle =
+              ((i / 39) * 2 * TOLERANCE_DEG - TOLERANCE_DEG) * (Math.PI / 180);
             const midR = METER_RADIUS - TOLERANCE_HEIGHT / 2;
             const x = Math.sin(angle) * midR;
             const y = -Math.cos(angle) * midR;
@@ -230,7 +250,7 @@ export default function App() {
               <View
                 key={`tol-${i}`}
                 style={{
-                  position: 'absolute',
+                  position: "absolute",
                   width: 4,
                   height: TOLERANCE_HEIGHT,
                   borderRadius: 1,
@@ -258,32 +278,46 @@ export default function App() {
             return (
               <View
                 key={i}
-                style={[styles.tick, {
-                  width: isMajor ? 1.5 : 1,
-                  height: tickLen,
-                  left: width / 2 + (x1 + x2) / 2 - 1,
-                  top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
-                  backgroundColor: isMajor
-                    ? (inTune ? t.accent : t.tickMajor)
-                    : (inTune ? t.accentMinor : t.tickMinor),
-                  transform: [{ rotate: `${(angle * 180) / Math.PI}deg` }],
-                }]}
+                style={[
+                  styles.tick,
+                  {
+                    width: isMajor ? 1.5 : 1,
+                    height: tickLen,
+                    left: width / 2 + (x1 + x2) / 2 - 1,
+                    top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
+                    backgroundColor: isMajor
+                      ? inTune
+                        ? t.accent
+                        : t.tickMajor
+                      : inTune
+                        ? t.accentMinor
+                        : t.tickMinor,
+                    transform: [{ rotate: `${(angle * 180) / Math.PI}deg` }],
+                  },
+                ]}
               />
             );
           })}
         </View>
 
         <Animated.View
-          style={[styles.needleWrapper, { transform: [{ rotate: needleRotation }] }]}
+          style={[
+            styles.needleWrapper,
+            { transform: [{ rotate: needleRotation }] },
+          ]}
         >
           <View style={[styles.needle, { backgroundColor: accentColor }]} />
           <View style={[styles.needleDot, { backgroundColor: accentColor }]} />
         </Animated.View>
 
-        <Text style={[styles.centsText, { color: t.centsText }]}>{centsText}</Text>
+        <Text style={[styles.centsText, { color: t.centsText }]}>
+          {centsText}
+        </Text>
       </Animated.View>
 
-      {error && <Text style={[styles.errorText, { color: t.errorText }]}>{error}</Text>}
+      {error && (
+        <Text style={[styles.errorText, { color: t.errorText }]}>{error}</Text>
+      )}
 
       {/* Settings Modal */}
       <Modal
@@ -292,117 +326,191 @@ export default function App() {
         animationType="fade"
         onRequestClose={() => setShowSettings(false)}
       >
-        <View style={styles.modalOverlay}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={Keyboard.dismiss}
+        >
           <View style={[styles.modalCard, { backgroundColor: t.modalBg }]}>
             {/* Header */}
-            <View style={[styles.modalHeader, { borderBottomColor: t.modalBorder }]}>
-              <Text style={[styles.modalTitle, { color: t.modalText }]}>Settings</Text>
-              <TouchableOpacity onPress={() => setShowSettings(false)} activeOpacity={0.6}>
-                <View style={[styles.closeIcon, { borderColor: t.modalSecondary }]}>
-                  <View style={[styles.closeLine1, { backgroundColor: t.modalSecondary }]} />
-                  <View style={[styles.closeLine2, { backgroundColor: t.modalSecondary }]} />
-                </View>
+            <View
+              style={[styles.modalHeader, { borderBottomColor: t.modalBorder }]}
+            >
+              <Text style={[styles.modalTitle, { color: t.modalText }]}>
+                Settings
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowSettings(false)}
+                activeOpacity={0.6}
+              >
+                <Ionicons name="close" size={24} color={t.modalSecondary} />
               </TouchableOpacity>
             </View>
 
             {/* Notation */}
-            <View style={[styles.settingRow, { borderBottomColor: t.modalBorder }]}>
+            <View
+              style={[styles.settingRow, { borderBottomColor: t.modalBorder }]}
+            >
               <View>
-                <Text style={[styles.settingLabel, { color: t.modalText }]}>Notation</Text>
+                <Text style={[styles.settingLabel, { color: t.modalText }]}>
+                  Notation
+                </Text>
                 <Text style={[styles.settingHint, { color: t.modalSecondary }]}>
-                  {settings.notation === 'solfege' ? 'Do, Re, Mi...' : 'C, D, E...'}
+                  {settings.notation === "solfege"
+                    ? "Do, Re, Mi..."
+                    : "C, D, E..."}
                 </Text>
               </View>
               <TouchableOpacity
                 style={[styles.notationToggle, { borderColor: t.modalBorder }]}
-                onPress={() => update({ notation: settings.notation === 'solfege' ? 'letter' : 'solfege' })}
+                onPress={() =>
+                  update({
+                    notation:
+                      settings.notation === "solfege" ? "letter" : "solfege",
+                  })
+                }
                 activeOpacity={0.6}
               >
-                <View style={[
-                  styles.notationOption,
-                  settings.notation === 'solfege' && { backgroundColor: t.accent },
-                ]}>
-                  <Text style={[
-                    styles.notationOptionText,
-                    { color: settings.notation === 'solfege' ? '#000' : t.modalSecondary },
-                  ]}>Do</Text>
+                <View
+                  style={[
+                    styles.notationOption,
+                    settings.notation === "solfege" && {
+                      backgroundColor: t.accent,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.notationOptionText,
+                      {
+                        color:
+                          settings.notation === "solfege"
+                            ? "#000"
+                            : t.modalSecondary,
+                      },
+                    ]}
+                  >
+                    Do
+                  </Text>
                 </View>
-                <View style={[
-                  styles.notationOption,
-                  settings.notation === 'letter' && { backgroundColor: t.accent },
-                ]}>
-                  <Text style={[
-                    styles.notationOptionText,
-                    { color: settings.notation === 'letter' ? '#000' : t.modalSecondary },
-                  ]}>C</Text>
+                <View
+                  style={[
+                    styles.notationOption,
+                    settings.notation === "letter" && {
+                      backgroundColor: t.accent,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.notationOptionText,
+                      {
+                        color:
+                          settings.notation === "letter"
+                            ? "#000"
+                            : t.modalSecondary,
+                      },
+                    ]}
+                  >
+                    C
+                  </Text>
                 </View>
               </TouchableOpacity>
             </View>
 
             {/* Calibration */}
-            <View style={[styles.settingRow, { borderBottomColor: t.modalBorder }]}>
+            <View
+              style={[styles.settingRow, { borderBottomColor: t.modalBorder }]}
+            >
               <View>
                 <Text style={[styles.settingLabel, { color: t.modalText }]}>
-                  {settings.notation === 'solfege' ? 'La' : 'A'}4 =
+                  {settings.notation === "solfege" ? "La" : "A"}4 =
                 </Text>
-                <Text style={[styles.settingHint, { color: t.modalSecondary }]}>400 — 480 Hz</Text>
+                <Text style={[styles.settingHint, { color: t.modalSecondary }]}>
+                  Standard 440 Hz
+                </Text>
               </View>
               <View style={styles.calibrationRow}>
+                {settings.a4Freq !== 440 && (
+                  <TouchableOpacity
+                    onPress={resetA4}
+                    activeOpacity={0.6}
+                    style={styles.resetButton}
+                  >
+                    <Ionicons
+                      name="refresh"
+                      size={18}
+                      color={t.modalSecondary}
+                    />
+                  </TouchableOpacity>
+                )}
                 <TextInput
-                  style={[styles.calibrationInput, {
-                    color: t.modalText,
-                    backgroundColor: t.modalInputBg,
-                    borderColor: t.modalBorder,
-                  }]}
+                  style={[
+                    styles.calibrationInput,
+                    {
+                      color: t.modalText,
+                      backgroundColor: t.modalInputBg,
+                      borderColor: t.modalBorder,
+                    },
+                  ]}
                   value={a4Input}
                   onChangeText={handleA4Change}
                   keyboardType="number-pad"
                   maxLength={3}
                   selectTextOnFocus
                 />
-                <Text style={[styles.hzLabel, { color: t.modalSecondary }]}>Hz</Text>
-                {settings.a4Freq !== 440 && (
-                  <TouchableOpacity onPress={resetA4} activeOpacity={0.6} style={styles.resetButton}>
-                    <View style={[styles.resetArrow, { borderColor: t.modalSecondary }]} />
-                  </TouchableOpacity>
-                )}
+                <Text style={[styles.hzLabel, { color: t.modalSecondary }]}>
+                  Hz
+                </Text>
               </View>
             </View>
 
             {/* Dark mode */}
-            <View style={[styles.settingRow, { borderBottomColor: t.modalBorder }]}>
-              <Text style={[styles.settingLabel, { color: t.modalText }]}>Dark mode</Text>
+            <View
+              style={[styles.settingRow, { borderBottomColor: t.modalBorder }]}
+            >
+              <Text style={[styles.settingLabel, { color: t.modalText }]}>
+                Dark mode
+              </Text>
               <Switch
                 value={settings.dark}
                 onValueChange={(val) => update({ dark: val })}
-                trackColor={{ false: '#ccc', true: t.accent }}
+                trackColor={{
+                  false: settings.dark ? "#555" : "#999",
+                  true: t.accent,
+                }}
                 thumbColor="#fff"
+                ios_backgroundColor={settings.dark ? "#555" : "#999"}
               />
             </View>
 
             {/* Footer */}
             <View style={styles.modalFooter}>
               <Text style={[styles.footerText, { color: t.modalSecondary }]}>
-                Open source app —{' '}
+                open source app —{" "}
                 <Text
                   style={styles.footerLink}
-                  onPress={() => Linking.openURL('https://github.com/lypnol/onetuner')}
+                  onPress={() =>
+                    Linking.openURL("https://github.com/lypnol/onetuner")
+                  }
                 >
                   code
                 </Text>
               </Text>
               <Text style={[styles.footerText, { color: t.modalSecondary }]}>
-                By{' '}
+                by{" "}
                 <Text
                   style={styles.footerLink}
-                  onPress={() => Linking.openURL('https://www.instagram.com/ayoub.v2.0')}
+                  onPress={() =>
+                    Linking.openURL("https://www.instagram.com/ayoub.v2.0")
+                  }
                 >
                   Ayoub SBAI
                 </Text>
               </Text>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       </Modal>
     </View>
   );
@@ -411,48 +519,29 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingTop: Platform.OS === "ios" ? 60 : 40,
   },
   settingsButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 60 : 40,
+    position: "absolute",
+    top: Platform.OS === "ios" ? 60 : 40,
     right: 20,
     padding: 8,
   },
-  gearOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gearTooth: {
-    position: 'absolute',
-    width: 2.5,
-    height: 26,
-    borderRadius: 1,
-  },
-  gearCenter: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
   noteContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginBottom: 30,
     height: 100,
   },
   noteRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    alignItems: "flex-start",
   },
   noteBase: {
     fontSize: 64,
-    fontWeight: '200',
+    fontWeight: "200",
     letterSpacing: 2,
   },
   noteSubscripts: {
@@ -461,22 +550,22 @@ const styles = StyleSheet.create({
   },
   noteOctave: {
     fontSize: 24,
-    fontWeight: '300',
+    fontWeight: "300",
   },
   noteAccidental: {
     fontSize: 28,
-    fontWeight: '300',
+    fontWeight: "300",
     marginTop: -4,
   },
   frequency: {
     fontSize: 16,
     marginTop: 4,
     height: 20,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
   listeningRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
   recordingDot: {
@@ -486,30 +575,30 @@ const styles = StyleSheet.create({
   },
   listeningText: {
     fontSize: 24,
-    fontWeight: '300',
+    fontWeight: "300",
     letterSpacing: 2,
   },
   meterContainer: {
     width: width,
     height: METER_RADIUS + 60,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   arcContainer: {
-    position: 'absolute',
+    position: "absolute",
     width: width,
     height: METER_RADIUS * 2,
     top: 0,
   },
   tick: {
-    position: 'absolute',
+    position: "absolute",
     borderRadius: 1,
   },
   needleWrapper: {
-    alignItems: 'center',
+    alignItems: "center",
     width: 4,
     height: NEEDLE_LENGTH + 5,
-    transformOrigin: 'center bottom',
+    transformOrigin: "center bottom",
   },
   needle: {
     width: 2,
@@ -525,79 +614,59 @@ const styles = StyleSheet.create({
   centsText: {
     fontSize: 14,
     marginTop: 20,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
   errorText: {
     fontSize: 12,
     marginTop: 16,
-    textAlign: 'center',
+    textAlign: "center",
     paddingHorizontal: 30,
   },
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalCard: {
     width: width * 0.82,
     borderRadius: 16,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
-  },
-  closeIcon: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  closeLine1: {
-    position: 'absolute',
-    width: 16,
-    height: 1.5,
-    borderRadius: 1,
-    transform: [{ rotate: '45deg' }],
-  },
-  closeLine2: {
-    position: 'absolute',
-    width: 16,
-    height: 1.5,
-    borderRadius: 1,
-    transform: [{ rotate: '-45deg' }],
+    fontWeight: "600",
   },
   settingRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   settingLabel: {
     fontSize: 15,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   settingHint: {
     fontSize: 12,
     marginTop: 2,
   },
   notationToggle: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderRadius: 8,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   notationOption: {
     paddingHorizontal: 16,
@@ -605,22 +674,22 @@ const styles = StyleSheet.create({
   },
   notationOptionText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   calibrationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   calibrationInput: {
     width: 52,
     fontSize: 16,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
     paddingVertical: 4,
     borderRadius: 6,
     borderWidth: 1,
-    fontVariant: ['tabular-nums'],
+    fontVariant: ["tabular-nums"],
   },
   hzLabel: {
     fontSize: 14,
@@ -628,15 +697,8 @@ const styles = StyleSheet.create({
   resetButton: {
     padding: 4,
   },
-  resetArrow: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    borderWidth: 2,
-    borderRightColor: 'transparent',
-  },
   modalFooter: {
-    alignItems: 'center',
+    alignItems: "center",
     paddingVertical: 14,
     gap: 2,
   },
@@ -644,6 +706,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   footerLink: {
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
   },
 });

@@ -7,9 +7,14 @@ import {
   Dimensions,
   Platform,
   TouchableOpacity,
+  Modal,
+  Switch,
+  TextInput,
+  Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAudioPitch } from './src/useAudioPitch';
+import { useSettings } from './src/useSettings';
 
 const { width } = Dimensions.get('window');
 const METER_RADIUS = width * 0.38;
@@ -34,8 +39,13 @@ const themes = {
     accent: '#4ade80',
     accentMinor: 'rgba(74, 222, 128, 0.5)',
     errorText: '#ff6666',
-    toggleIcon: '#ccc',
+    iconColor: '#ccc',
     statusBar: 'light' as const,
+    modalBg: '#1a1a22',
+    modalText: '#eee',
+    modalSecondary: '#888',
+    modalBorder: '#333',
+    modalInputBg: '#0a0a0f',
   },
   light: {
     bg: '#f5f5f7',
@@ -50,44 +60,48 @@ const themes = {
     accent: '#22c55e',
     accentMinor: 'rgba(34, 197, 94, 0.4)',
     errorText: '#dc2626',
-    toggleIcon: '#666',
+    iconColor: '#666',
     statusBar: 'dark' as const,
+    modalBg: '#ffffff',
+    modalText: '#111',
+    modalSecondary: '#777',
+    modalBorder: '#ddd',
+    modalInputBg: '#f0f0f0',
   },
 };
 
 export default function App() {
-  const { state, error } = useAudioPitch();
+  const { settings, update, loaded } = useSettings();
+  const { state, error } = useAudioPitch(settings.a4Freq, settings.notation);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [inTune, setInTune] = useState(false);
-  const [dark, setDark] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [a4Input, setA4Input] = useState(String(settings.a4Freq));
   const needleAngle = useRef(new Animated.Value(0)).current;
   const recordingPulse = useRef(new Animated.Value(0.3)).current;
 
-  const t = dark ? themes.dark : themes.light;
+  const t = settings.dark ? themes.dark : themes.light;
 
-  // Recording dot pulse — restart each time we go inactive
+  // Sync a4Input when settings load
+  useEffect(() => {
+    if (loaded) setA4Input(String(settings.a4Freq));
+  }, [loaded, settings.a4Freq]);
+
+  // Recording dot pulse
   useEffect(() => {
     if (state.active) return;
     recordingPulse.setValue(0.3);
     const pulse = Animated.loop(
       Animated.sequence([
-        Animated.timing(recordingPulse, {
-          toValue: 1,
-          duration: 900,
-          useNativeDriver: false,
-        }),
-        Animated.timing(recordingPulse, {
-          toValue: 0.3,
-          duration: 900,
-          useNativeDriver: false,
-        }),
+        Animated.timing(recordingPulse, { toValue: 1, duration: 900, useNativeDriver: false }),
+        Animated.timing(recordingPulse, { toValue: 0.3, duration: 900, useNativeDriver: false }),
       ])
     );
     pulse.start();
     return () => pulse.stop();
   }, [state.active]);
 
-  // Fade in/out based on active state
+  // Fade in/out
   useEffect(() => {
     Animated.timing(fadeAnim, {
       toValue: state.active ? 1 : 0.4,
@@ -96,7 +110,7 @@ export default function App() {
     }).start();
   }, [state.active]);
 
-  // Animate needle based on cents deviation
+  // Needle animation
   useEffect(() => {
     const targetAngle = state.note ? (state.note.cents / 50) * 45 : 0;
     Animated.spring(needleAngle, {
@@ -107,7 +121,7 @@ export default function App() {
     }).start();
   }, [state.note?.cents]);
 
-  // Hysteresis: tighter threshold to enter green, wider to leave
+  // Hysteresis
   useEffect(() => {
     if (!state.active || !state.note) {
       setInTune(false);
@@ -133,20 +147,42 @@ export default function App() {
 
   const accentColor = inTune ? t.accent : t.needle;
 
+  const handleA4Change = (text: string) => {
+    setA4Input(text);
+    const val = parseInt(text, 10);
+    if (val >= 400 && val <= 480) {
+      update({ a4Freq: val });
+    }
+  };
+
+  const resetA4 = () => {
+    setA4Input('440');
+    update({ a4Freq: 440 });
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: t.bg }]}>
       <StatusBar style={t.statusBar} />
 
-      {/* Theme toggle */}
+      {/* Settings gear button */}
       <TouchableOpacity
-        style={styles.themeToggle}
-        onPress={() => setDark((d) => !d)}
+        style={styles.settingsButton}
+        onPress={() => setShowSettings(true)}
         activeOpacity={0.6}
       >
-        <View style={[styles.toggleCircle, { borderColor: t.toggleIcon }]}>
-          {dark ? null : (
-            <View style={[styles.toggleCrescent, { backgroundColor: t.bg }]} />
-          )}
+        <View style={[styles.gearOuter, { borderColor: t.iconColor }]}>
+          {/* Gear teeth */}
+          {[0, 45, 90, 135].map((deg) => (
+            <View
+              key={deg}
+              style={[styles.gearTooth, {
+                backgroundColor: t.iconColor,
+                transform: [{ rotate: `${deg}deg` }],
+              }]}
+            />
+          ))}
+          {/* Center hole */}
+          <View style={[styles.gearCenter, { backgroundColor: t.bg }]} />
         </View>
       </TouchableOpacity>
 
@@ -183,16 +219,13 @@ export default function App() {
 
       {/* Meter */}
       <Animated.View style={[styles.meterContainer, { opacity: fadeAnim }]}>
-        {/* Arc ticks */}
         <View style={styles.arcContainer}>
-          {/* Tolerance arc band — overlapping strips for solid fill */}
+          {/* Tolerance arc band */}
           {Array.from({ length: 40 }).map((_, i) => {
             const angle = ((i / 39) * 2 * TOLERANCE_DEG - TOLERANCE_DEG) * (Math.PI / 180);
-            const outerR = METER_RADIUS;
-            const midR = outerR - TOLERANCE_HEIGHT / 2;
+            const midR = METER_RADIUS - TOLERANCE_HEIGHT / 2;
             const x = Math.sin(angle) * midR;
             const y = -Math.cos(angle) * midR;
-
             return (
               <View
                 key={`tol-${i}`}
@@ -209,7 +242,7 @@ export default function App() {
               />
             );
           })}
-          {/* Regular ticks (skip center) */}
+          {/* Regular ticks */}
           {Array.from({ length: TICK_COUNT }).map((_, i) => {
             const isCenter = i === Math.floor(TICK_COUNT / 2);
             if (isCenter) return null;
@@ -222,48 +255,155 @@ export default function App() {
             const y1 = -Math.cos(angle) * outerR;
             const x2 = Math.sin(angle) * innerR;
             const y2 = -Math.cos(angle) * innerR;
-
             return (
               <View
                 key={i}
-                style={[
-                  styles.tick,
-                  {
-                    width: isMajor ? 1.5 : 1,
-                    height: tickLen,
-                    left: width / 2 + (x1 + x2) / 2 - 1,
-                    top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
-                    backgroundColor: isMajor
-                      ? (inTune ? t.accent : t.tickMajor)
-                      : (inTune ? t.accentMinor : t.tickMinor),
-                    transform: [
-                      { rotate: `${(angle * 180) / Math.PI}deg` },
-                    ],
-                  },
-                ]}
+                style={[styles.tick, {
+                  width: isMajor ? 1.5 : 1,
+                  height: tickLen,
+                  left: width / 2 + (x1 + x2) / 2 - 1,
+                  top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
+                  backgroundColor: isMajor
+                    ? (inTune ? t.accent : t.tickMajor)
+                    : (inTune ? t.accentMinor : t.tickMinor),
+                  transform: [{ rotate: `${(angle * 180) / Math.PI}deg` }],
+                }]}
               />
             );
           })}
         </View>
 
-        {/* Needle */}
         <Animated.View
-          style={[
-            styles.needleWrapper,
-            {
-              transform: [{ rotate: needleRotation }],
-            },
-          ]}
+          style={[styles.needleWrapper, { transform: [{ rotate: needleRotation }] }]}
         >
           <View style={[styles.needle, { backgroundColor: accentColor }]} />
           <View style={[styles.needleDot, { backgroundColor: accentColor }]} />
         </Animated.View>
 
-        {/* Cents label */}
         <Text style={[styles.centsText, { color: t.centsText }]}>{centsText}</Text>
       </Animated.View>
 
       {error && <Text style={[styles.errorText, { color: t.errorText }]}>{error}</Text>}
+
+      {/* Settings Modal */}
+      <Modal
+        visible={showSettings}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowSettings(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: t.modalBg }]}>
+            {/* Header */}
+            <View style={[styles.modalHeader, { borderBottomColor: t.modalBorder }]}>
+              <Text style={[styles.modalTitle, { color: t.modalText }]}>Settings</Text>
+              <TouchableOpacity onPress={() => setShowSettings(false)} activeOpacity={0.6}>
+                <View style={[styles.closeIcon, { borderColor: t.modalSecondary }]}>
+                  <View style={[styles.closeLine1, { backgroundColor: t.modalSecondary }]} />
+                  <View style={[styles.closeLine2, { backgroundColor: t.modalSecondary }]} />
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Notation */}
+            <View style={[styles.settingRow, { borderBottomColor: t.modalBorder }]}>
+              <View>
+                <Text style={[styles.settingLabel, { color: t.modalText }]}>Notation</Text>
+                <Text style={[styles.settingHint, { color: t.modalSecondary }]}>
+                  {settings.notation === 'solfege' ? 'Do, Re, Mi...' : 'C, D, E...'}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={[styles.notationToggle, { borderColor: t.modalBorder }]}
+                onPress={() => update({ notation: settings.notation === 'solfege' ? 'letter' : 'solfege' })}
+                activeOpacity={0.6}
+              >
+                <View style={[
+                  styles.notationOption,
+                  settings.notation === 'solfege' && { backgroundColor: t.accent },
+                ]}>
+                  <Text style={[
+                    styles.notationOptionText,
+                    { color: settings.notation === 'solfege' ? '#000' : t.modalSecondary },
+                  ]}>Do</Text>
+                </View>
+                <View style={[
+                  styles.notationOption,
+                  settings.notation === 'letter' && { backgroundColor: t.accent },
+                ]}>
+                  <Text style={[
+                    styles.notationOptionText,
+                    { color: settings.notation === 'letter' ? '#000' : t.modalSecondary },
+                  ]}>C</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Calibration */}
+            <View style={[styles.settingRow, { borderBottomColor: t.modalBorder }]}>
+              <View>
+                <Text style={[styles.settingLabel, { color: t.modalText }]}>
+                  {settings.notation === 'solfege' ? 'La' : 'A'}4 =
+                </Text>
+                <Text style={[styles.settingHint, { color: t.modalSecondary }]}>400 — 480 Hz</Text>
+              </View>
+              <View style={styles.calibrationRow}>
+                <TextInput
+                  style={[styles.calibrationInput, {
+                    color: t.modalText,
+                    backgroundColor: t.modalInputBg,
+                    borderColor: t.modalBorder,
+                  }]}
+                  value={a4Input}
+                  onChangeText={handleA4Change}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                  selectTextOnFocus
+                />
+                <Text style={[styles.hzLabel, { color: t.modalSecondary }]}>Hz</Text>
+                {settings.a4Freq !== 440 && (
+                  <TouchableOpacity onPress={resetA4} activeOpacity={0.6} style={styles.resetButton}>
+                    <View style={[styles.resetArrow, { borderColor: t.modalSecondary }]} />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            {/* Dark mode */}
+            <View style={[styles.settingRow, { borderBottomColor: t.modalBorder }]}>
+              <Text style={[styles.settingLabel, { color: t.modalText }]}>Dark mode</Text>
+              <Switch
+                value={settings.dark}
+                onValueChange={(val) => update({ dark: val })}
+                trackColor={{ false: '#ccc', true: t.accent }}
+                thumbColor="#fff"
+              />
+            </View>
+
+            {/* Footer */}
+            <View style={styles.modalFooter}>
+              <Text style={[styles.footerText, { color: t.modalSecondary }]}>
+                Open source app —{' '}
+                <Text
+                  style={styles.footerLink}
+                  onPress={() => Linking.openURL('https://github.com/lypnol/onetuner')}
+                >
+                  code
+                </Text>
+              </Text>
+              <Text style={[styles.footerText, { color: t.modalSecondary }]}>
+                By{' '}
+                <Text
+                  style={styles.footerLink}
+                  onPress={() => Linking.openURL('https://www.instagram.com/ayoub.v2.0')}
+                >
+                  Ayoub SBAI
+                </Text>
+              </Text>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -275,25 +415,30 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
   },
-  themeToggle: {
+  settingsButton: {
     position: 'absolute',
     top: Platform.OS === 'ios' ? 60 : 40,
-    left: 20,
+    right: 20,
     padding: 8,
   },
-  toggleCircle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    borderWidth: 1.5,
+  gearOuter: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  toggleCrescent: {
+  gearTooth: {
     position: 'absolute',
-    width: 12,
-    height: 18,
-    borderRadius: 9,
-    right: -2,
-    top: -1.5,
+    width: 2.5,
+    height: 26,
+    borderRadius: 1,
+  },
+  gearCenter: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   noteContainer: {
     alignItems: 'center',
@@ -338,7 +483,6 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: '#ff4444',
   },
   listeningText: {
     fontSize: 24,
@@ -388,5 +532,118 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
     paddingHorizontal: 30,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCard: {
+    width: width * 0.82,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  closeIcon: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeLine1: {
+    position: 'absolute',
+    width: 16,
+    height: 1.5,
+    borderRadius: 1,
+    transform: [{ rotate: '45deg' }],
+  },
+  closeLine2: {
+    position: 'absolute',
+    width: 16,
+    height: 1.5,
+    borderRadius: 1,
+    transform: [{ rotate: '-45deg' }],
+  },
+  settingRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  settingLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  settingHint: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  notationToggle: {
+    flexDirection: 'row',
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  notationOption: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+  },
+  notationOptionText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  calibrationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  calibrationInput: {
+    width: 52,
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    fontVariant: ['tabular-nums'],
+  },
+  hzLabel: {
+    fontSize: 14,
+  },
+  resetButton: {
+    padding: 4,
+  },
+  resetArrow: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderRightColor: 'transparent',
+  },
+  modalFooter: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 2,
+  },
+  footerText: {
+    fontSize: 11,
+  },
+  footerLink: {
+    textDecorationLine: 'underline',
   },
 });

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { AudioRecorder, AudioManager } from 'react-native-audio-api';
 import { detectPitch, hasSignal } from './pitchDetection';
-import { frequencyToNote, NoteInfo } from './noteMapper';
+import { frequencyToNote, NoteInfo, Notation } from './noteMapper';
 
 const SAMPLE_RATE = 44100;
 const BUFFER_SIZE = 2048;
@@ -22,7 +22,7 @@ export interface TunerState {
   active: boolean;
 }
 
-export function useAudioPitch() {
+export function useAudioPitch(a4Freq: number = 440, notation: Notation = 'solfege') {
   const [state, setState] = useState<TunerState>({
     note: null,
     frequency: null,
@@ -96,7 +96,7 @@ export function useAudioPitch() {
             }
 
             const smoothedFreq = history.length >= 3 ? median(history) : freq;
-            const note = frequencyToNote(smoothedFreq);
+            const note = frequencyToNote(smoothedFreq, a4Freq, notation);
 
             smoothedCentsRef.current += CENTS_SMOOTHING * (note.cents - smoothedCentsRef.current);
             const displayNote: NoteInfo = {

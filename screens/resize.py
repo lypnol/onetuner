@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """Resize screenshots for App Store submission.
 
-For each source image, produces versions at every target size:
-- Resizes to match target width (preserving aspect ratio)
-- Crops top/bottom equally if too tall
-- Pads top/bottom with background color if too short
+For each source image:
+1. Masks the status bar and camera notch with the background color
+2. Resizes to match each target width (preserving aspect ratio)
+3. Crops or pads vertically to hit the exact target dimensions
+
 Background color is sampled from the top-left pixel of each image.
 """
 
 import os
 import sys
 from pathlib import Path
-from PIL import Image
+from PIL import Image, ImageDraw
 
 TARGETS = [
     (1242, 2688),
@@ -21,13 +22,27 @@ TARGETS = [
     (750, 1334),
 ]
 
+# Height in pixels of the status bar + notch area to mask (at source resolution)
+STATUS_BAR_HEIGHT = 155
+
 SCRIPT_DIR = Path(__file__).parent
+
+
+def mask_status_bar(img: Image.Image, bg_color: tuple) -> Image.Image:
+    """Paint over the status bar / Dynamic Island area with the background color."""
+    masked = img.copy()
+    draw = ImageDraw.Draw(masked)
+    draw.rectangle([(0, 0), (img.width, STATUS_BAR_HEIGHT)], fill=bg_color)
+    return masked
 
 
 def resize_screenshot(src_path: Path):
     img = Image.open(src_path).convert("RGBA")
     bg_color = img.getpixel((0, 0))[:3]
     stem = src_path.stem
+
+    # Mask status bar and notch
+    img = mask_status_bar(img, bg_color)
 
     for tw, th in TARGETS:
         # Resize to target width, keep aspect ratio

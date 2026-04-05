@@ -7,25 +7,30 @@ Open the app, play a note, see if you're in tune. No accounts, no ads, no subscr
 ## Screenshots
 
 <p align="center">
-  <img src="screens/IMG_0606.PNG" width="200" />
-  <img src="screens/IMG_0609.PNG" width="200" />
-  <img src="screens/IMG_0610.PNG" width="200" />
-  <img src="screens/IMG_0611.PNG" width="200" />
+  <img src="screens/IMG_0615.PNG" width="200" />
+  <img src="screens/IMG_0613.PNG" width="200" />
+  <img src="screens/IMG_0617.PNG" width="200" />
+  <img src="screens/IMG_0619.PNG" width="200" />
+  <img src="screens/IMG_0620.PNG" width="200" />
+  <img src="screens/IMG_0621.PNG" width="200" />
 </p>
 
 ## How it works
 
-- Listens to your microphone and detects pitch in real-time using the YIN algorithm
-- Displays the nearest note in solfege notation (Do, Re, Mi...) with proper accidentals (♭)
+- Listens to your microphone and detects pitch in real-time
+- HPS + YIN hybrid pitch detection with harmonic validation for accuracy
+- Displays the nearest note in solfège (Do, Re, Mi...) or letter (C, D, E...) notation with proper accidentals (♭)
 - Needle meter shows how many cents sharp or flat you are
 - Everything turns green when you're in tune (within ±4 cents)
+- Configurable A4 reference frequency for custom calibration
+- Dark and light mode
 - Starts listening automatically, stops when backgrounded
 
 ## Built with
 
 - React Native (Expo) + TypeScript
 - [react-native-audio-api](https://github.com/nicoder/react-native-audio-api) for real-time microphone input
-- YIN pitch detection algorithm with median filtering and EMA smoothing
+- HPS (Harmonic Product Spectrum) + YIN hybrid pitch detection with median filtering and adaptive EMA smoothing
 
 ## Run it
 

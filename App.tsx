@@ -30,14 +30,21 @@ const TOLERANCE_HEIGHT = 20;
 const themes = {
   dark: {
     bg: "#0a0a0f",
+    // Active (sound detected) colors
     noteText: "#ffffff",
     freqText: "#eee",
-    listeningText: "#f0f0f0",
     centsText: "#fff",
     tickMajor: "#fff",
-    tickMinor: "#eee",
-    toleranceIdle: "rgba(255, 255, 255, 0.6)",
+    tickMinor: "rgba(255, 255, 255, 0.7)",
+    toleranceActive: "rgba(255, 255, 255, 0.6)",
     needle: "#fff",
+    // Idle (no sound) colors — same muted gray as the settings icon
+    idleText: "#ccc",
+    idleTick: "#ccc",
+    idleTickMinor: "rgba(204, 204, 204, 0.5)",
+    toleranceIdle: "rgba(204, 204, 204, 0.4)",
+    idleNeedle: "#ccc",
+    listeningText: "#ccc",
     accent: "#4ade80",
     accentMinor: "rgba(74, 222, 128, 0.5)",
     errorText: "#ff6666",
@@ -51,14 +58,21 @@ const themes = {
   },
   light: {
     bg: "#f5f5f7",
+    // Active (sound detected) colors
     noteText: "#000",
     freqText: "#333",
-    listeningText: "#111",
     centsText: "#111",
     tickMajor: "#000",
     tickMinor: "#333",
-    toleranceIdle: "rgba(0, 0, 0, 0.4)",
+    toleranceActive: "rgba(0, 0, 0, 0.4)",
     needle: "#000",
+    // Idle (no sound) colors
+    idleText: "#999",
+    idleTick: "#999",
+    idleTickMinor: "rgba(153, 153, 153, 0.5)",
+    toleranceIdle: "rgba(153, 153, 153, 0.3)",
+    idleNeedle: "#999",
+    listeningText: "#999",
     accent: "#22c55e",
     accentMinor: "rgba(34, 197, 94, 0.4)",
     errorText: "#dc2626",
@@ -75,7 +89,6 @@ const themes = {
 export default function App() {
   const { settings, update, loaded } = useSettings();
   const { state, error } = useAudioPitch(settings.a4Freq, settings.notation);
-  const fadeAnim = useRef(new Animated.Value(0)).current;
   const [inTune, setInTune] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [a4Input, setA4Input] = useState(String(settings.a4Freq));
@@ -111,14 +124,6 @@ export default function App() {
     return () => pulse.stop();
   }, [state.active]);
 
-  // Fade in/out
-  useEffect(() => {
-    Animated.timing(fadeAnim, {
-      toValue: state.active ? 1 : 0.4,
-      duration: state.active ? 150 : 800,
-      useNativeDriver: true,
-    }).start();
-  }, [state.active]);
 
   // Needle animation
   useEffect(() => {
@@ -155,7 +160,11 @@ export default function App() {
         : `${state.note.cents}`
       : "";
 
-  const accentColor = inTune ? t.accent : t.needle;
+  const isActive = state.active;
+  const accentColor = inTune ? t.accent : isActive ? t.needle : t.idleNeedle;
+  const majorTickColor = inTune ? t.accent : isActive ? t.tickMajor : t.idleTick;
+  const minorTickColor = inTune ? t.accentMinor : isActive ? t.tickMinor : t.idleTickMinor;
+  const toleranceColor = inTune ? t.accent : isActive ? t.toleranceActive : t.toleranceIdle;
 
   const handleA4Change = (text: string) => {
     setA4Input(text);
@@ -184,7 +193,7 @@ export default function App() {
       </TouchableOpacity>
 
       {/* Note display */}
-      <Animated.View style={[styles.noteContainer, { opacity: fadeAnim }]}>
+      <View style={styles.noteContainer}>
         {state.active && state.note ? (
           <>
             <View style={styles.noteRow}>
@@ -217,7 +226,7 @@ export default function App() {
                 ) : null}
               </View>
             </View>
-            <Text style={[styles.frequency, { color: t.freqText }]}>
+            <Text style={[styles.frequency, { color: inTune ? t.accent : t.freqText }]}>
               {state.frequency ? `${state.frequency.toFixed(1)} Hz` : ""}
             </Text>
           </>
@@ -234,10 +243,10 @@ export default function App() {
             </Text>
           </View>
         )}
-      </Animated.View>
+      </View>
 
       {/* Meter */}
-      <Animated.View style={[styles.meterContainer, { opacity: fadeAnim }]}>
+      <View style={styles.meterContainer}>
         <View style={styles.arcContainer}>
           {/* Tolerance arc band */}
           {Array.from({ length: 40 }).map((_, i) => {
@@ -256,7 +265,7 @@ export default function App() {
                   borderRadius: 1,
                   left: width / 2 + x - 2,
                   top: METER_RADIUS + y - TOLERANCE_HEIGHT / 2,
-                  backgroundColor: inTune ? t.accent : t.toleranceIdle,
+                  backgroundColor: toleranceColor,
                   transform: [{ rotate: `${(angle * 180) / Math.PI}deg` }],
                 }}
               />
@@ -285,13 +294,7 @@ export default function App() {
                     height: tickLen,
                     left: width / 2 + (x1 + x2) / 2 - 1,
                     top: METER_RADIUS + (y1 + y2) / 2 - tickLen / 2,
-                    backgroundColor: isMajor
-                      ? inTune
-                        ? t.accent
-                        : t.tickMajor
-                      : inTune
-                        ? t.accentMinor
-                        : t.tickMinor,
+                    backgroundColor: isMajor ? majorTickColor : minorTickColor,
                     transform: [{ rotate: `${(angle * 180) / Math.PI}deg` }],
                   },
                 ]}
@@ -310,10 +313,10 @@ export default function App() {
           <View style={[styles.needleDot, { backgroundColor: accentColor }]} />
         </Animated.View>
 
-        <Text style={[styles.centsText, { color: t.centsText }]}>
+        <Text style={[styles.centsText, { color: isActive ? t.centsText : t.idleText }]}>
           {centsText}
         </Text>
-      </Animated.View>
+      </View>
 
       {error && (
         <Text style={[styles.errorText, { color: t.errorText }]}>{error}</Text>

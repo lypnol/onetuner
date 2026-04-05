@@ -15,6 +15,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw
 
 TARGETS = [
+    (2064, 2752),
     (1242, 2688),
     (1260, 2736),
     (1206, 2622),

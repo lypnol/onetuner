@@ -16,6 +16,12 @@ const YIN_THRESHOLD = 0.15;
 const HPS_HARMONICS = 5; // multiply spectrum at 1x, 2x, 3x, 4x, 5x
 const MIN_FREQ = 30;
 const MAX_FREQ = 5000;
+const HPS_ZERO_PAD_FACTOR = 2; // zero-pad FFT for finer spectral resolution
+
+export interface PitchResult {
+  frequency: number;
+  confidence: number; // 0–1, derived from YIN's CMNDF minimum (lower dip = higher confidence)
+}
 
 // ── FFT (radix-2, in-place, Cooley–Tukey) ──────────────────────────
 
@@ -78,25 +84,26 @@ function getHann(n: number): Float64Array {
 
 function hpsDetect(buffer: Float32Array, sampleRate: number): number | null {
   const n = buffer.length;
+  const paddedN = n * HPS_ZERO_PAD_FACTOR; // zero-pad for finer bin resolution
   const hann = getHann(n);
 
-  // Windowed FFT
-  const re = new Float64Array(n);
-  const im = new Float64Array(n);
+  // Windowed FFT with zero-padding
+  const re = new Float64Array(paddedN); // zeros beyond n
+  const im = new Float64Array(paddedN);
   for (let i = 0; i < n; i++) {
     re[i] = buffer[i] * hann[i];
   }
   fft(re, im);
 
   // Magnitude spectrum (only need first half)
-  const halfN = n >> 1;
+  const halfN = paddedN >> 1;
   const mag = new Float64Array(halfN);
   for (let i = 0; i < halfN; i++) {
     mag[i] = Math.sqrt(re[i] * re[i] + im[i] * im[i]);
   }
 
-  // Frequency resolution
-  const binHz = sampleRate / n;
+  // Frequency resolution (based on padded size for finer bins)
+  const binHz = sampleRate / paddedN;
 
   // HPS range: bins corresponding to MIN_FREQ..MAX_FREQ
   const minBin = Math.max(1, Math.ceil(MIN_FREQ / binHz));
@@ -128,7 +135,7 @@ function hpsDetect(buffer: Float32Array, sampleRate: number): number | null {
     }
   }
 
-  if (peakVal === 0) return null;
+  if (!(peakVal > 0)) return null;
 
   // Parabolic interpolation on the HPS peak for sub-bin accuracy
   const s0 = peakBin > 0 ? hps[peakBin - 1] : hps[peakBin];
@@ -137,15 +144,21 @@ function hpsDetect(buffer: Float32Array, sampleRate: number): number | null {
   const denom = 2 * (s0 - 2 * s1 + s2);
   const interpBin = denom !== 0 ? peakBin + (s0 - s2) / denom : peakBin;
 
-  return interpBin * binHz;
+  const freq = interpBin * binHz;
+  return Number.isFinite(freq) ? freq : null;
 }
 
 // ── YIN pitch detection ─────────────────────────────────────────────
 
+interface YinResult {
+  frequency: number;
+  confidence: number;
+}
+
 function yinDetect(
   buffer: Float32Array,
   sampleRate: number
-): number | null {
+): YinResult | null {
   const halfLen = Math.floor(buffer.length / 2);
   const diff = new Float32Array(halfLen);
 
@@ -182,6 +195,25 @@ function yinDetect(
 
   if (tauEstimate === -1) return null;
 
+  // Sub-harmonic correction: YIN's first-dip rule can miss the true-period
+  // dip when it sits just above the threshold, then lock onto 2×/3×/4× the
+  // true period (which is also periodic, often with an even deeper dip).
+  // If a shorter period has a comparably deep cmndf, prefer it.
+  // Check longest-divisor first so we unwrap multi-octave errors in one pass.
+  const originalDip = cmndf[tauEstimate];
+  for (const div of [4, 3, 2]) {
+    const subTau = Math.round(tauEstimate / div);
+    if (subTau < 2) continue;
+    // Walk to the nearest local minimum around subTau
+    let t = subTau;
+    while (t + 1 < halfLen && cmndf[t + 1] < cmndf[t]) t++;
+    while (t > 2 && cmndf[t - 1] < cmndf[t]) t--;
+    if (cmndf[t] < originalDip * 1.3) {
+      tauEstimate = t;
+      break;
+    }
+  }
+
   // Parabolic interpolation
   const s0 = cmndf[tauEstimate - 1] ?? cmndf[tauEstimate];
   const s1 = cmndf[tauEstimate];
@@ -190,9 +222,15 @@ function yinDetect(
     tauEstimate + (s0 - s2) / (2 * (s0 - 2 * s1 + s2) || 1);
 
   const frequency = sampleRate / betterTau;
-  if (frequency < MIN_FREQ || frequency > MAX_FREQ) return null;
+  if (!Number.isFinite(frequency) || frequency < MIN_FREQ || frequency > MAX_FREQ) return null;
 
-  return frequency;
+  // CMNDF dip value → confidence: lower dip = more periodic = higher confidence.
+  // s1 can be NaN on near-DC buffers where the CMNDF running-sum is zero;
+  // treat any non-finite dip as unusable.
+  if (!Number.isFinite(s1)) return null;
+  const confidence = Math.max(0, Math.min(1, 1 - s1));
+
+  return { frequency, confidence };
 }
 
 // ── Combined detector: HPS validates YIN ────────────────────────────
@@ -206,16 +244,18 @@ function yinDetect(
 export function detectPitch(
   buffer: Float32Array,
   sampleRate: number
-): number | null {
-  const yinFreq = yinDetect(buffer, sampleRate);
+): PitchResult | null {
+  const yinResult = yinDetect(buffer, sampleRate);
   const hpsFreq = hpsDetect(buffer, sampleRate);
 
   // If neither detected anything, no pitch
-  if (!yinFreq && !hpsFreq) return null;
+  if (!yinResult && !hpsFreq) return null;
 
   // If only one succeeded, use it
-  if (!yinFreq) return hpsFreq;
-  if (!hpsFreq) return yinFreq;
+  if (!yinResult) return { frequency: hpsFreq!, confidence: 0.5 };
+  if (!hpsFreq) return yinResult;
+
+  const yinFreq = yinResult.frequency;
 
   // Both detected — check if YIN locked onto a harmonic of the HPS fundamental.
   // If YIN is ~Nx the HPS frequency (within 1 semitone), correct it down.
@@ -228,18 +268,30 @@ export function detectPitch(
     if (deviation < 0.06) {
       // YIN locked onto a harmonic — use HPS frequency but
       // refine with YIN's sub-harmonic precision
-      return yinFreq / roundedRatio;
+      return { frequency: yinFreq / roundedRatio, confidence: yinResult.confidence };
+    }
+  }
+
+  // Inverse case: YIN locked onto a SUB-harmonic (true period × N).
+  // HPS identifies the true fundamental, so trust it here.
+  const invRatio = hpsFreq / yinFreq;
+  const roundedInvRatio = Math.round(invRatio);
+  if (roundedInvRatio >= 2 && roundedInvRatio <= 6) {
+    const invDeviation = Math.abs(invRatio - roundedInvRatio) / roundedInvRatio;
+    if (invDeviation < 0.06) {
+      return { frequency: hpsFreq, confidence: yinResult.confidence };
     }
   }
 
   // If they roughly agree (within 1 semitone), prefer YIN for precision
   const semitoneDiff = Math.abs(12 * Math.log2(yinFreq / hpsFreq));
   if (semitoneDiff < 1) {
-    return yinFreq;
+    return yinResult;
   }
 
   // Disagreement — trust HPS (more robust against harmonics/noise)
-  return hpsFreq;
+  // Lower confidence since we couldn't cross-validate
+  return { frequency: hpsFreq, confidence: yinResult.confidence * 0.5 };
 }
 
 /**

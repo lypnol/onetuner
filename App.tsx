@@ -102,7 +102,11 @@ export default function App() {
     if (loaded) setA4Input(String(settings.a4Freq));
   }, [loaded, settings.a4Freq]);
 
-  // Recording dot pulse
+  // Recording dot pulse — must use the native driver. With the JS driver,
+  // the Animated.loop keyframes run on the JS thread alongside the audio
+  // callback (~22Hz), and on iPad's lower-power JS thread the two starve
+  // the React reconciler so `state.active=true` commits never land — the
+  // pulse then never unsubscribes and the UI is stuck on "listening...".
   useEffect(() => {
     if (state.active) return;
     recordingPulse.setValue(0.3);
@@ -111,12 +115,12 @@ export default function App() {
         Animated.timing(recordingPulse, {
           toValue: 1,
           duration: 900,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
         Animated.timing(recordingPulse, {
           toValue: 0.3,
           duration: 900,
-          useNativeDriver: false,
+          useNativeDriver: true,
         }),
       ]),
     );

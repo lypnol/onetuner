@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { AppState } from 'react-native';
 import { AudioRecorder, AudioManager } from 'react-native-audio-api';
-import { detectPitch, hasSignal } from './pitchDetection';
+import { detectPitch, hasSignal, PitchResult } from './pitchDetection';
 import { frequencyToNote, NoteInfo, Notation } from './noteMapper';
 
 const SAMPLE_RATE = 44100;
 const BUFFER_SIZE = 2048;
+const SIGNAL_THRESHOLD = 0.002;
+const SILENCE_FRAMES = 10;
 
 // ── Smoothing pipeline constants ────────────────────────────────────
 
@@ -14,9 +16,10 @@ const OUTLIER_SEMITONES = 3;         // jump > 3 semitones = suspect
 const OUTLIER_CONFIRM_FRAMES = 3;    // need 3 consecutive frames to accept a jump
 const CENTS_EMA_SLOW = 0.25;         // EMA factor during sustained note (smooth)
 const CENTS_EMA_FAST = 0.7;          // EMA factor after confirmed note change (responsive)
+const FREQ_EMA_BASE = 0.3;           // base EMA factor for frequency smoothing
+const CONFIDENCE_MIN_ALPHA = 0.1;    // minimum EMA alpha for low-confidence frames
 const NOTE_LOCK_CENTS = 35;          // cents away from current note center before switching
 const NOTE_LOCK_FRAMES = 3;          // frames the new note must persist before switching
-const SILENCE_FRAMES_THRESHOLD = 10; // frames without pitch before going inactive
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -112,22 +115,31 @@ export function useAudioPitch(a4Freq: number = 440, notation: Notation = 'solfeg
         (event) => {
           const buffer = event.buffer.getChannelData(0);
 
-          if (!hasSignal(buffer)) {
+          if (!hasSignal(buffer, SIGNAL_THRESHOLD)) {
             silenceCountRef.current++;
-            if (silenceCountRef.current >= SILENCE_FRAMES_THRESHOLD) {
+            if (silenceCountRef.current >= SILENCE_FRAMES) {
               resetSmoothing();
               setState({ note: null, frequency: null, active: false });
             }
             return;
           }
 
-          const rawFreq = detectPitch(buffer, SAMPLE_RATE);
-          if (!rawFreq) {
+          const pitchResult = detectPitch(buffer, SAMPLE_RATE);
+          if (!pitchResult) {
             silenceCountRef.current++;
-            if (silenceCountRef.current >= SILENCE_FRAMES_THRESHOLD) {
+            if (silenceCountRef.current >= SILENCE_FRAMES) {
               resetSmoothing();
               setState({ note: null, frequency: null, active: false });
             }
+            return;
+          }
+
+          const rawFreq = pitchResult.frequency;
+          const confidence = pitchResult.confidence;
+
+          // Belt-and-braces: detectPitch should never return non-finite values,
+          // but a single NaN would poison smoothedFreqRef permanently via EMA.
+          if (!Number.isFinite(rawFreq) || !Number.isFinite(confidence)) {
             return;
           }
 
@@ -173,12 +185,14 @@ export function useAudioPitch(a4Freq: number = 440, notation: Notation = 'solfeg
           }
           const medianFreq = history.length >= 3 ? median(history) : rawFreq;
 
-          // ── Frequency EMA ─────────────────────────────────────
+          // ── Frequency EMA (confidence-weighted) ───────────────
+          // High-confidence frames pull the average harder;
+          // low-confidence frames contribute less, reducing jitter.
+          const freqAlpha = CONFIDENCE_MIN_ALPHA + (FREQ_EMA_BASE - CONFIDENCE_MIN_ALPHA) * confidence;
           if (smoothedFreqRef.current === 0) {
             smoothedFreqRef.current = medianFreq;
           } else {
-            const alpha = 0.3;
-            smoothedFreqRef.current += alpha * (medianFreq - smoothedFreqRef.current);
+            smoothedFreqRef.current += freqAlpha * (medianFreq - smoothedFreqRef.current);
           }
 
           const freq = smoothedFreqRef.current;
@@ -224,10 +238,12 @@ export function useAudioPitch(a4Freq: number = 440, notation: Notation = 'solfeg
             }
           }
 
-          // ── Cents EMA (adaptive) ──────────────────────────────
-          // Use fast EMA right after a note change, slow during sustain
+          // ── Cents EMA (adaptive + confidence-weighted) ─────────
+          // Use fast EMA right after a note change, slow during sustain.
+          // Scale by confidence so noisy frames don't jitter the needle.
           const justChanged = lockedNoteRef.current !== locked;
-          const emaFactor = justChanged ? CENTS_EMA_FAST : CENTS_EMA_SLOW;
+          const baseEma = justChanged ? CENTS_EMA_FAST : CENTS_EMA_SLOW;
+          const emaFactor = CONFIDENCE_MIN_ALPHA + (baseEma - CONFIDENCE_MIN_ALPHA) * confidence;
 
           // Compute cents relative to the locked note's exact frequency
           const lockedNote = lockedNoteRef.current!;

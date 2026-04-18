@@ -7,7 +7,12 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "plugins": [
-      "react-native-audio-api"
+      [
+        "react-native-audio-api",
+        {
+          "iosBackgroundMode": false
+        }
+      ]
     ],
     "newArchEnabled": true,
     "splash": {

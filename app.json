@@ -2,7 +2,7 @@
   "expo": {
     "name": "onetuner",
     "slug": "onetuner",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -24,7 +24,8 @@
         "NSMicrophoneUsageDescription": "OneTuner needs microphone access to detect pitch."
       },
       "bundleIdentifier": "com.ayoubsbai.onetuner",
-      "appleTeamId": "GLEUU8BUZB"
+      "appleTeamId": "GLEUU8BUZB",
+      "buildNumber": "2"
     },
     "android": {
       "permissions": [
